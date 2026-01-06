@@ -31,6 +31,9 @@ namespace EncodingDisplayExtension
         private EnvDTE.DTE _dte;
         private EnvDTE.WindowEvents _windowEvents;
 
+        // 当前跟踪的文档（用于监听编码变化）
+        private ITextDocument _currentDocument;
+
         // 这是我们要插入到状态栏的 WPF 控件
         private TextBlock _encodingTextBlock;
 
@@ -60,7 +63,14 @@ namespace EncodingDisplayExtension
                 }
             }
 
-            // 4. 初次运行更新
+            // 4. 监听 VS 主窗口获得焦点事件（从其他应用切回时刷新）
+            var mainWindow = Application.Current.MainWindow;
+            if (mainWindow != null)
+            {
+                mainWindow.Activated += OnMainWindowActivated;
+            }
+
+            // 5. 初次运行更新
             UpdateEncodingDisplay();
         }
 
@@ -161,6 +171,27 @@ namespace EncodingDisplayExtension
             });
         }
 
+        private void OnMainWindowActivated(object sender, EventArgs e)
+        {
+            // 从其他应用切回 VS 时刷新编码显示
+            _ = this.JoinableTaskFactory.RunAsync(async () =>
+            {
+                await this.JoinableTaskFactory.SwitchToMainThreadAsync();
+                await Task.Delay(50); // 等待状态同步
+                UpdateEncodingDisplay();
+            });
+        }
+
+        private void OnEncodingChanged(object sender, EncodingChangedEventArgs e)
+        {
+            // 文档编码发生变化时刷新显示
+            _ = this.JoinableTaskFactory.RunAsync(async () =>
+            {
+                await this.JoinableTaskFactory.SwitchToMainThreadAsync();
+                UpdateEncodingDisplay();
+            });
+        }
+
         private void UpdateEncodingDisplay()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
@@ -188,6 +219,19 @@ namespace EncodingDisplayExtension
                 if (buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document) &&
                     document != null && document.Encoding != null)
                 {
+                    // 如果文档发生变化，更新编码变化事件的订阅
+                    if (_currentDocument != document)
+                    {
+                        // 取消旧文档的订阅
+                        if (_currentDocument != null)
+                        {
+                            _currentDocument.EncodingChanged -= OnEncodingChanged;
+                        }
+                        // 订阅新文档的编码变化事件
+                        _currentDocument = document;
+                        _currentDocument.EncodingChanged += OnEncodingChanged;
+                    }
+
                     // 更新 WPF 控件的文字
                     string encodingName = document.Encoding.WebName.ToUpper();
                     int codePage = document.Encoding.CodePage;
@@ -247,6 +291,21 @@ namespace EncodingDisplayExtension
                     _windowEvents.WindowActivated -= OnWindowActivated;
                     _windowEvents = null;
                 }
+
+                // 取消主窗口激活事件订阅
+                var mainWindow = Application.Current?.MainWindow;
+                if (mainWindow != null)
+                {
+                    mainWindow.Activated -= OnMainWindowActivated;
+                }
+
+                // 取消当前文档编码变化事件订阅
+                if (_currentDocument != null)
+                {
+                    _currentDocument.EncodingChanged -= OnEncodingChanged;
+                    _currentDocument = null;
+                }
+
                 _dte = null;
             }
 

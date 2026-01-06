@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="EncodingDisplayExtension.d12d3504-1bd4-4f31-af9f-d1c4bb9b4b0d" Version="1.3" Language="en-US" Publisher="Alex Zhao" />
+        <Identity Id="EncodingDisplayExtension.d12d3504-1bd4-4f31-af9f-d1c4bb9b4b0d" Version="1.5" Language="en-US" Publisher="Alex Zhao" />
         <DisplayName>File Encoding Display 2022</DisplayName>
         <Description xml:space="preserve">Status bar encoding indicator for Visual Studio 2022</Description>
         <Icon>icon.png</Icon>
