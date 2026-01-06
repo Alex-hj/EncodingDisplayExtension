@@ -83,7 +83,7 @@ namespace EncodingDisplayExtension
                         Text = "Loading...",
                         Margin = new Thickness(10, 0, 10, 0), // 左右留点空隙
                         VerticalAlignment = VerticalAlignment.Center,
-                        Foreground = Brushes.White, // 简单设置白色，适配深色主题；更完美的做法是绑定 VS Theme Key
+                        Foreground = System.Windows.SystemColors.WindowTextBrush, // 简单设置白色，适配深色主题；更完美的做法是绑定 VS Theme Key
                         ToolTip = "Current File Encoding"
                     };
 
