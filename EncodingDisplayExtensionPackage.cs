@@ -3,6 +3,10 @@ using System.ComponentModel.Composition;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Editor;
@@ -14,12 +18,6 @@ using Task = System.Threading.Tasks.Task;
 
 namespace EncodingDisplayExtension
 {
-    /// <summary>
-    /// 这是插件的主入口类。
-    /// PackageRegistration 属性告诉 VS 这个类存在。
-    /// ProvideAutoLoad 属性确保插件在打开解决方案或没有解决方案时也会自动加载，
-    /// 这样我们才能一直监听文件切换事件。
-    /// </summary>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(PackageGuidString)]
     [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionExists_string, PackageAutoLoadFlags.BackgroundLoad)]
@@ -28,60 +26,131 @@ namespace EncodingDisplayExtension
     {
         public const string PackageGuidString = "a8b9c0d1-e2f3-4a5b-6c7d-8e9f0a1b2c3d"; // 注意：如果你创建了新项目，请保留原文件中的 GUID
 
-        // 状态栏服务
-        private IVsStatusbar _statusBar;
-        // MEF 组件宿主，用于获取现代编辑器服务
         private IComponentModel _componentModel;
-        // 传统的文本管理器服务，用于监听视图变化
         private IVsTextManager _textManager;
-        // 用于将 IVsTextView 转换为 WPF TextView
         private IVsEditorAdaptersFactoryService _editorAdapter;
 
-        /// <summary>
-        /// 初始化步骤。当 VS 加载插件时会调用此方法。
-        /// </summary>
+        // 这是我们要插入到状态栏的 WPF 控件
+        private TextBlock _encodingTextBlock;
+
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
-            // 切换到主线程，因为我们需要访问 UI 服务
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-            // 获取基础服务
-            _statusBar = await GetServiceAsync(typeof(SVsStatusbar)) as IVsStatusbar;
+            // 1. 获取服务
             _textManager = await GetServiceAsync(typeof(SVsTextManager)) as IVsTextManager;
             _componentModel = await GetServiceAsync(typeof(SComponentModel)) as IComponentModel;
-
             if (_componentModel != null)
             {
                 _editorAdapter = _componentModel.GetService<IVsEditorAdaptersFactoryService>();
             }
 
-            // 开始监听活动视图的变化
+            // 2. 初始化界面 (注入 WPF 控件)
+            InjectStatusBarUI();
+
+            // 3. 注册事件监听
             if (_textManager != null)
             {
-                // 创建一个监听器
-                var sink = new ViewNotificationSink(this);
-                // 注册监听器，当活动视图发生变化时通知我们
-                // 注意：RegisterViewNotificationSink 是 IVsTextManager2 的方法
-                // 这里我们简化处理，使用即时轮询或通过 DTE 事件也可以，但通过 WindowEvents 更稳健
-                // 为了简化代码并确保不用复杂的 ConnectionPoint，我们这里使用 DTE 事件作为触发器
-
-                // 重新获取 DTE 服务用于事件监听（这是最简单的方式）
                 var dte = await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
                 if (dte != null)
                 {
-                    // 订阅窗口切换事件
                     dte.Events.WindowEvents.WindowActivated += OnWindowActivated;
                 }
             }
 
-            // 初始化时尝试显示一次
+            // 4. 初次运行更新
             UpdateEncodingDisplay();
+        }
+
+        private void InjectStatusBarUI()
+        {
+            // 确保在 UI 线程运行
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            try
+            {
+                // 获取 VS 主窗口
+                var mainWindow = Application.Current.MainWindow;
+                if (mainWindow == null) return;
+
+                // 查找状态栏 (StatusBar)
+                var statusBar = FindChild<StatusBar>(mainWindow);
+                if (statusBar != null)
+                {
+                    // 创建我们要显示的文本块
+                    _encodingTextBlock = new TextBlock
+                    {
+                        Text = "Loading...",
+                        Margin = new Thickness(10, 0, 10, 0), // 左右留点空隙
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Foreground = Brushes.White, // 简单设置白色，适配深色主题；更完美的做法是绑定 VS Theme Key
+                        ToolTip = "Current File Encoding"
+                    };
+
+                    // 包装在 StatusBarItem 中
+                    var newItem = new StatusBarItem
+                    {
+                        Content = _encodingTextBlock,
+                        Name = "EncodingDisplayItem" // 给个名字防止重复添加
+                    };
+
+                    // 关键布局设置：停靠在右侧
+                    DockPanel.SetDock(newItem, Dock.Right);
+
+                    // 检查是否已经添加过，防止重复
+                    bool exists = false;
+                    foreach (var child in statusBar.Items)
+                    {
+                        if (child is StatusBarItem item && item.Name == "EncodingDisplayItem")
+                        {
+                            exists = true;
+                            // 如果找到了旧的，更新引用即可
+                            if (item.Content is TextBlock tb) _encodingTextBlock = tb;
+                            break;
+                        }
+                    }
+
+                    if (!exists)
+                    {
+                        // 插入到 Items 集合中。
+                        // 在 DockPanel 中，对于 Dock.Right 的元素：
+                        // 列表前面的元素会被推到最右边，列表后面的元素会往左排。
+                        // 为了让它显示在 WakaTime (通常是最右侧) 的左边，我们直接 Add 到末尾即可。
+                        statusBar.Items.Add(newItem);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error injecting UI: {ex.Message}");
+            }
+        }
+
+        // 辅助方法：递归查找子控件
+        private T FindChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            if (parent == null) return null;
+
+            int childCount = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < childCount; i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T typedChild)
+                {
+                    return typedChild;
+                }
+
+                var result = FindChild<T>(child);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
+            return null;
         }
 
         private void OnWindowActivated(EnvDTE.Window gotFocus, EnvDTE.Window lostFocus)
         {
-            // 当窗口切换时，更新编码显示
-            // 使用 JoinableTaskFactory 确保在主线程执行
             _ = this.JoinableTaskFactory.RunAsync(async () =>
             {
                 await this.JoinableTaskFactory.SwitchToMainThreadAsync();
@@ -89,67 +158,57 @@ namespace EncodingDisplayExtension
             });
         }
 
-        /// <summary>
-        /// 核心方法：获取当前文件的编码并显示在状态栏
-        /// </summary>
         private void UpdateEncodingDisplay()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            if (_textManager == null || _editorAdapter == null || _statusBar == null)
+            // 如果 UI 还没初始化成功，就不做任何事
+            if (_encodingTextBlock == null || _textManager == null || _editorAdapter == null)
                 return;
 
             try
             {
-                // 获取当前活动的视图
                 IVsTextView activeView = null;
                 _textManager.GetActiveView(1, null, out activeView);
 
                 if (activeView == null)
                 {
-                    _statusBar.SetText(""); // 没有活动视图，清空状态栏
+                    _encodingTextBlock.Text = "";
                     return;
                 }
 
-                // 将 COM 的 IVsTextView 转换为现代的 IWpfTextView
                 var wpfTextView = _editorAdapter.GetWpfTextView(activeView);
                 if (wpfTextView == null) return;
 
-                // 从 TextView 获取 TextBuffer
                 ITextBuffer buffer = wpfTextView.TextBuffer;
 
-                // 尝试从 Buffer 中获取 ITextDocument（这就包含了文件路径和编码信息）
-                // ITextDocument 来源于 Microsoft.VisualStudio.Text.Data
                 if (buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
                 {
                     if (document != null && document.Encoding != null)
                     {
-                        // 构造显示字符串，例如： "UTF-8"
-                        string statusText = document.Encoding.WebName.ToUpper();
+                        // 更新 WPF 控件的文字
+                        string encodingName = document.Encoding.WebName.ToUpper();
+                        // 简单的显示格式，比如 "UTF-8"
+                        _encodingTextBlock.Text = $"{encodingName}";
 
-                        // 写入状态栏
-                        // 0 = 暂时显示，1 = 稳定显示
-                        // 这里我们使用 SetText 直接写入主区域
-                        _statusBar.SetText(statusText);
+                        // 动态调整颜色（可选优化）：如果不是 UTF-8，显示为黄色提醒
+                        if (encodingName != "UTF-8")
+                        {
+                            _encodingTextBlock.Foreground = Brushes.Gold;
+                        }
+                        else
+                        {
+                            // 恢复默认颜色 (这里暂时硬编码为 LightGray/White 以适应深色主题)
+                            // 真正的生产级插件会使用 DynamicResource 绑定 VsBrushes.StatusBarTextKey
+                            _encodingTextBlock.Foreground = Brushes.LightGray;
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                // 发生错误时不崩溃，只是在输出窗口打印（可选）
-                System.Diagnostics.Debug.WriteLine($"Error updating encoding: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Update Error: {ex.Message}");
             }
-        }
-
-        // 简单的辅助类，用于接收视图通知（如果不想用 DTE，可以用这个，本例主要用了 DTE）
-        private class ViewNotificationSink : IVsTextManagerEvents
-        {
-            private readonly EncodingDisplayPackage _package;
-            public ViewNotificationSink(EncodingDisplayPackage package) { _package = package; }
-            public void OnRegisterMarkerType(int iMarkerType) { }
-            public void OnRegisterView(IVsTextView pView) { }
-            public void OnUnregisterView(IVsTextView pView) { }
-            public void OnUserPreferencesChanged(VIEWPREFERENCES[] pViewPrefs, FRAMEPREFERENCES[] pFramePrefs, LANGPREFERENCES[] pLangPrefs, FONTCOLORPREFERENCES[] pColorPrefs) { }
         }
     }
 }
