@@ -154,6 +154,7 @@ namespace EncodingDisplayExtension
             _ = this.JoinableTaskFactory.RunAsync(async () =>
             {
                 await this.JoinableTaskFactory.SwitchToMainThreadAsync();
+                await Task.Delay(50); // 等待 TextManager 状态同步
                 UpdateEncodingDisplay();
             });
         }
