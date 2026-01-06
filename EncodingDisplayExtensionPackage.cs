@@ -188,19 +188,32 @@ namespace EncodingDisplayExtension
                     {
                         // 更新 WPF 控件的文字
                         string encodingName = document.Encoding.WebName.ToUpper();
+                        int codePage = document.Encoding.CodePage;
+
                         // 简单的显示格式，比如 "UTF-8"
                         _encodingTextBlock.Text = $"{encodingName}";
 
-                        // 动态调整颜色（可选优化）：如果不是 UTF-8，显示为黄色提醒
-                        if (encodingName != "UTF-8")
+                        // 简单的颜色映射逻辑
+                        // 注意：这里使用的 Brushes 颜色是针对深色主题优化的
+                        if (encodingName == "UTF-8")
                         {
-                            _encodingTextBlock.Foreground = Brushes.Gold;
+                            _encodingTextBlock.Foreground = Brushes.LightGray; // 默认
+                        }
+                        else if (encodingName.Contains("GB") || codePage == 936) // GB2312, GBK, GB18030
+                        {
+                            _encodingTextBlock.Foreground = Brushes.SpringGreen; // 醒目的绿色
+                        }
+                        else if (encodingName.Contains("ASCII"))
+                        {
+                            _encodingTextBlock.Foreground = Brushes.SkyBlue; // 蓝色
+                        }
+                        else if (encodingName.Contains("UTF-16") || encodingName.Contains("UNICODE"))
+                        {
+                            _encodingTextBlock.Foreground = Brushes.Violet; // 紫色
                         }
                         else
                         {
-                            // 恢复默认颜色 (这里暂时硬编码为 LightGray/White 以适应深色主题)
-                            // 真正的生产级插件会使用 DynamicResource 绑定 VsBrushes.StatusBarTextKey
-                            _encodingTextBlock.Foreground = Brushes.LightGray;
+                            _encodingTextBlock.Foreground = Brushes.Orange; // 其他生僻编码用橙色警告
                         }
                     }
                 }
