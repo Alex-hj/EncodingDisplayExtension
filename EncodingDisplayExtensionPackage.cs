@@ -1,5 +1,4 @@
 ﻿using System;
-using System.ComponentModel.Composition;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,6 +28,8 @@ namespace EncodingDisplayExtension
         private IComponentModel _componentModel;
         private IVsTextManager _textManager;
         private IVsEditorAdaptersFactoryService _editorAdapter;
+        private EnvDTE.DTE _dte;
+        private EnvDTE.WindowEvents _windowEvents;
 
         // 这是我们要插入到状态栏的 WPF 控件
         private TextBlock _encodingTextBlock;
@@ -51,10 +52,11 @@ namespace EncodingDisplayExtension
             // 3. 注册事件监听
             if (_textManager != null)
             {
-                var dte = await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
-                if (dte != null)
+                _dte = await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+                if (_dte != null)
                 {
-                    dte.Events.WindowEvents.WindowActivated += OnWindowActivated;
+                    _windowEvents = _dte.Events.WindowEvents;
+                    _windowEvents.WindowActivated += OnWindowActivated;
                 }
             }
 
@@ -183,46 +185,72 @@ namespace EncodingDisplayExtension
 
                 ITextBuffer buffer = wpfTextView.TextBuffer;
 
-                if (buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document))
+                if (buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document) &&
+                    document != null && document.Encoding != null)
                 {
-                    if (document != null && document.Encoding != null)
+                    // 更新 WPF 控件的文字
+                    string encodingName = document.Encoding.WebName.ToUpper();
+                    int codePage = document.Encoding.CodePage;
+                    bool hasBom = document.Encoding.GetPreamble().Length > 0;
+
+                    // 区分 UTF-8 和 UTF-8 with BOM
+                    if (encodingName == "UTF-8" && hasBom)
                     {
-                        // 更新 WPF 控件的文字
-                        string encodingName = document.Encoding.WebName.ToUpper();
-                        int codePage = document.Encoding.CodePage;
-
-                        // 简单的显示格式，比如 "UTF-8"
-                        _encodingTextBlock.Text = $"{encodingName}";
-
-                        // 简单的颜色映射逻辑
-                        // 注意：这里使用的 Brushes 颜色是针对深色主题优化的
-                        if (encodingName == "UTF-8")
-                        {
-                            _encodingTextBlock.Foreground = Brushes.LightGray; // 默认
-                        }
-                        else if (encodingName.Contains("GB") || codePage == 936) // GB2312, GBK, GB18030
-                        {
-                            _encodingTextBlock.Foreground = Brushes.SpringGreen; // 醒目的绿色
-                        }
-                        else if (encodingName.Contains("ASCII"))
-                        {
-                            _encodingTextBlock.Foreground = Brushes.SkyBlue; // 蓝色
-                        }
-                        else if (encodingName.Contains("UTF-16") || encodingName.Contains("UNICODE"))
-                        {
-                            _encodingTextBlock.Foreground = Brushes.Violet; // 紫色
-                        }
-                        else
-                        {
-                            _encodingTextBlock.Foreground = Brushes.Orange; // 其他生僻编码用橙色警告
-                        }
+                        _encodingTextBlock.Text = "UTF-8 BOM";
                     }
+                    else
+                    {
+                        _encodingTextBlock.Text = encodingName;
+                    }
+
+                    // 颜色映射逻辑（使用在深色和浅色主题下都较清晰的颜色）
+                    if (encodingName == "UTF-8")
+                    {
+                        _encodingTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(0x60, 0xA0, 0x60)); // 柔和绿色
+                    }
+                    else if (encodingName.Contains("GB") || codePage == 936) // GB2312, GBK, GB18030
+                    {
+                        _encodingTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(0xE0, 0xA0, 0x30)); // 琥珀色警告
+                    }
+                    else if (encodingName.Contains("ASCII"))
+                    {
+                        _encodingTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(0x50, 0x90, 0xD0)); // 天蓝色
+                    }
+                    else if (encodingName.Contains("UTF-16") || encodingName.Contains("UNICODE"))
+                    {
+                        _encodingTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(0xA0, 0x70, 0xD0)); // 紫色
+                    }
+                    else
+                    {
+                        _encodingTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(0xE0, 0x60, 0x40)); // 橙红色警告
+                    }
+                }
+                else
+                {
+                    // 非文本文件或无法获取编码信息时清空显示
+                    _encodingTextBlock.Text = "";
                 }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Update Error: {ex.Message}");
             }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                // 取消事件订阅，防止内存泄漏
+                if (_windowEvents != null)
+                {
+                    _windowEvents.WindowActivated -= OnWindowActivated;
+                    _windowEvents = null;
+                }
+                _dte = null;
+            }
+
+            base.Dispose(disposing);
         }
     }
 }
