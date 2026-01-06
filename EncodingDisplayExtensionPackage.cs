@@ -283,6 +283,8 @@ namespace EncodingDisplayExtension
 
         protected override void Dispose(bool disposing)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             if (disposing)
             {
                 // 取消事件订阅，防止内存泄漏
