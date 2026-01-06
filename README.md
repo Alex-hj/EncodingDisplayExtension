@@ -66,7 +66,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/your-username/EncodingDisplayExtension.git
+git clone https://github.com/Alex-hj/EncodingDisplayExtension.git
 
 # 打开解决方案
 cd EncodingDisplayExtension
