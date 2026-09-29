@@ -13,7 +13,7 @@
 
 ## 📋 系统要求
 
-- **Visual Studio 2022** (17.0 或更高版本)
+- **Visual Studio 2022** (17.x 系列)
 - **.NET Framework 4.7.2** 或更高版本
 - **Windows 10/11**
 
@@ -47,7 +47,7 @@
 | 编码 | 状态栏显示 |
 |------|-----------|
 | UTF-8 | `UTF-8` |
-| UTF-8 with BOM | `UTF-8` |
+| UTF-8 with BOM | `UTF-8 BOM` |
 | GB2312/GBK | `GB2312` |
 | UTF-16 LE | `UTF-16` |
 | ASCII | `US-ASCII` |
@@ -82,13 +82,21 @@ start EncodingDisplayExtension.sln
 
 ```
 EncodingDisplayExtension/
-├── EncodingDisplayExtension.sln      # 解决方案文件
-├── EncodingDisplayExtension.csproj   # 项目文件
-├── EncodingDisplayExtensionPackage.cs # 主要代码文件
-├── source.extension.vsixmanifest     # VSIX 清单文件
+├── EncodingDisplayExtension.sln     # 解决方案文件
+├── EncodingDisplayExtension.csproj  # 项目文件
+├── EncodingDisplayPackage.cs        # 包入口：初始化、事件订阅、刷新调度
+├── ActiveDocumentTracker.cs         # 解析活动编辑器的文档，并订阅其编码变化
+├── EncodingDisplayInfo.cs           # 编码到显示文本与颜色的映射
+├── EncodingStatusBarItem.cs         # 状态栏显示项的注入与更新
+├── VisualTreeExtensions.cs          # WPF 可视化树查找扩展
+├── source.extension.vsixmanifest    # VSIX 清单文件
+├── icon.png                         # 扩展图标
+├── docs/
+│   └── screenshot.png               # README 截图
 ├── Properties/
-│   └── AssemblyInfo.cs               # 程序集信息
-└── README.md                         # 说明文档
+│   └── AssemblyInfo.cs              # 程序集信息
+├── LICENSE                          # 许可证
+└── README.md                        # 说明文档
 ```
 
 ## 🛠️ 技术实现
@@ -96,7 +104,8 @@ EncodingDisplayExtension/
 - 使用 `IVsTextManager` 获取当前活动的文本视图
 - 使用 `IVsEditorAdaptersFactoryService` 将 COM 接口转换为 WPF 编辑器接口
 - 通过 `ITextDocument.Encoding` 获取文件编码信息
-- 监听 `WindowEvents.WindowActivated` 事件实现自动更新
+- 监听 `WindowEvents.WindowActivated`（切换文档/窗口）和主窗口 `Activated`（从其他应用切回）事件，自动刷新显示
+- 监听当前文档的 `ITextDocument.EncodingChanged` 事件，以其他编码保存后立即更新
 - 采用 `AsyncPackage` 实现后台异步加载
 
 ## 📄 许可证
