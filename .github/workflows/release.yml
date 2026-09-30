@@ -1,0 +1,34 @@
+# 推送形如 v1.6 的 tag 时，自动编译 VSIX 并发布到 GitHub Release
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# 创建 Release 需要写权限
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # 固定 windows-2022：该镜像装的是 VS 2022（17.x）及扩展开发工作负载，与清单的 [17.0, 18.0) 一致。
+    # windows-latest 当前指向的镜像只装了 VS 2026。
+    runs-on: windows-2022
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+
+      - name: 配置 MSBuild
+        uses: microsoft/setup-msbuild@v3
+
+      # DeployExtension=false：CI 上不需要像 F5 那样把扩展部署到实验实例
+      - name: 编译 VSIX
+        run: msbuild EncodingDisplayExtension.csproj /restore /p:Configuration=Release /p:DeployExtension=false
+
+      - name: 发布 GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: bin/Release/EncodingDisplayExtension.vsix
+          # 找不到 vsix 时让任务失败，避免发布出没有安装包的 Release
+          fail_on_unmatched_files: true
