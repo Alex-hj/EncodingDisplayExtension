@@ -92,7 +92,8 @@ EncodingDisplayExtension/
 ├── source.extension.vsixmanifest    # VSIX 清单文件
 ├── icon.png                         # 扩展图标
 ├── docs/
-│   └── screenshot.png               # README 截图
+│   ├── screenshot.png               # README 截图
+│   └── release.md                   # 自动发布 Release 的操作步骤
 ├── Properties/
 │   └── AssemblyInfo.cs              # 程序集信息
 ├── LICENSE                          # 许可证
