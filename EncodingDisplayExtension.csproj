@@ -46,11 +46,20 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ActiveDocumentTracker.cs" />
+    <Compile Include="EncodingConverter.cs" />
     <Compile Include="EncodingDisplayInfo.cs" />
     <Compile Include="EncodingDisplayPackage.cs" />
+    <Compile Include="EncodingExtensions.cs" />
+    <Compile Include="EncodingMenu.cs" />
     <Compile Include="EncodingStatusBarItem.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SupportedEncodings.cs" />
     <Compile Include="VisualTreeExtensions.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <VSCTCompile Include="EncodingMenu.vsct">
+      <ResourceName>Menus.ctmenu</ResourceName>
+    </VSCTCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="source.extension.vsixmanifest">
@@ -62,6 +71,7 @@
     <Reference Include="PresentationFramework" />
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.Composition" />
+    <Reference Include="System.Design" />
     <Reference Include="System.Xaml" />
     <Reference Include="WindowsBase" />
   </ItemGroup>

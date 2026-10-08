@@ -1,21 +1,25 @@
 ﻿using System;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text;
-using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.TextManager.Interop;
 
 namespace EncodingDisplayExtension
 {
     /// <summary>
-    /// 解析当前活动编辑器对应的文档，并且只订阅该文档的 EncodingChanged 事件。
+    /// 解析当前活动文档窗口对应的文档，并且只订阅该文档的 EncodingChanged 事件。
+    /// 活动文档窗口只会在切换文档时变化：焦点移到输出、调用堆栈、解决方案资源管理器等工具窗口时，
+    /// 仍然是原来的文件；只有没有文本文档（没有打开文件、图片、设计器等）时才返回 null。
     /// </summary>
     internal sealed class ActiveDocumentTracker : IDisposable
     {
-        // GetActiveView 的 fMustHaveFocus 参数：只返回当前拥有焦点的文本视图
-        private const int MustHaveFocus = 1;
+        // VSFPROPID_IsDocDataInitialized：VS 17.9 起，异步打开的文档在初始化完成前读取 DocData 可能阻塞。
+        // 数值已在本机 VS 17.14 的 Microsoft.VisualStudio.Interop 中核实；当前引用的 SDK 版本还没有对应的枚举。
+        private const int IsDocDataInitializedPropertyId = -5055;
 
-        private readonly IVsTextManager _textManager;
+        private readonly IVsMonitorSelection _monitorSelection;
         private readonly IVsEditorAdaptersFactoryService _editorAdapter;
         private readonly Action _onEncodingChanged;
 
@@ -23,17 +27,22 @@ namespace EncodingDisplayExtension
         private ITextDocument _trackedDocument;
 
         public ActiveDocumentTracker(
-            IVsTextManager textManager,
+            IVsMonitorSelection monitorSelection,
             IVsEditorAdaptersFactoryService editorAdapter,
             Action onEncodingChanged)
         {
-            _textManager = textManager;
+            _monitorSelection = monitorSelection;
             _editorAdapter = editorAdapter;
             _onEncodingChanged = onEncodingChanged;
         }
 
         /// <summary>
-        /// 返回当前活动文本视图的文档（没有则为 null），并让编码变化订阅跟随该文档。
+        /// 最近一次 GetActiveDocument 解析出的文档，也就是状态栏当前显示的那个；没有则为 null。
+        /// </summary>
+        public ITextDocument TrackedDocument => _trackedDocument;
+
+        /// <summary>
+        /// 返回当前活动文档窗口的文档（没有则为 null），并让编码变化订阅跟随该文档。
         /// 没有文档时会释放旧订阅，避免继续持有已关闭的文档。
         /// </summary>
         public ITextDocument GetActiveDocument()
@@ -54,20 +63,55 @@ namespace EncodingDisplayExtension
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            _textManager.GetActiveView(MustHaveFocus, null, out IVsTextView activeView);
-            if (activeView == null)
+            ITextBuffer buffer = FindActiveDocumentBuffer();
+            if (buffer == null)
             {
                 return null;
             }
 
-            IWpfTextView wpfTextView = _editorAdapter.GetWpfTextView(activeView);
-            if (wpfTextView == null)
-            {
-                return null;
-            }
-
-            wpfTextView.TextBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document);
+            buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument document);
             return document;
+        }
+
+        // 活动文档窗口 → DocData（IVsTextBuffer）→ 文档缓冲区；DocData 不是文本缓冲区时返回 null
+        private ITextBuffer FindActiveDocumentBuffer()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            IVsWindowFrame frame = GetActiveDocumentFrame();
+            if (frame == null || !IsDocDataInitialized(frame))
+            {
+                return null;
+            }
+
+            if (ErrorHandler.Failed(frame.GetProperty((int)__VSFPROPID.VSFPROPID_DocData, out object docData)))
+            {
+                return null;
+            }
+
+            return docData is IVsTextBuffer textBuffer ? _editorAdapter.GetDocumentBuffer(textBuffer) : null;
+        }
+
+        // SEID_DocumentFrame 只在文档窗口被激活时才会变化，工具窗口获得焦点不会影响它
+        private IVsWindowFrame GetActiveDocumentFrame()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            int hr = _monitorSelection.GetCurrentElementValue((uint)VSConstants.VSSELELEMID.SEID_DocumentFrame, out object value);
+            return ErrorHandler.Succeeded(hr) ? value as IVsWindowFrame : null;
+        }
+
+        // 旧版本 VS 没有这个属性（读取失败），按已初始化处理；读到的值不是 bool 时按未初始化处理
+        private static bool IsDocDataInitialized(IVsWindowFrame frame)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (ErrorHandler.Failed(frame.GetProperty(IsDocDataInitializedPropertyId, out object value)))
+            {
+                return true;
+            }
+
+            return value is bool initialized && initialized;
         }
 
         private void Track(ITextDocument document)

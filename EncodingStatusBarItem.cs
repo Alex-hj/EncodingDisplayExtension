@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using Microsoft.VisualStudio.Shell;
 
 namespace EncodingDisplayExtension
@@ -12,25 +13,34 @@ namespace EncodingDisplayExtension
     internal sealed class EncodingStatusBarItem
     {
         private const string ItemName = "EncodingDisplayItem";
+        private const string DefaultToolTip = "Current File Encoding";
+        private const string ClickableToolTip = "Current File Encoding (click to change)";
 
         private readonly TextBlock _textBlock;
+        private readonly Action _onClicked;
 
-        private EncodingStatusBarItem(TextBlock textBlock)
+        // 当前显示的编码是否允许点击修改
+        private bool _canChange;
+
+        private EncodingStatusBarItem(TextBlock textBlock, Action onClicked)
         {
             _textBlock = textBlock;
+            _onClicked = onClicked;
+            _textBlock.MouseLeftButtonUp += OnMouseLeftButtonUp;
         }
 
         /// <summary>
         /// 在主窗口状态栏注入（或复用已有的）编码显示项；找不到主窗口或状态栏时返回 null。
+        /// onClicked 在用户点击一个允许修改的编码时调用。
         /// </summary>
-        public static EncodingStatusBarItem TryInject(Window mainWindow)
+        public static EncodingStatusBarItem TryInject(Window mainWindow, Action onClicked)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
             try
             {
                 var statusBar = mainWindow.FindChild<StatusBar>();
-                return statusBar == null ? null : new EncodingStatusBarItem(FindOrAddTextBlock(statusBar));
+                return statusBar == null ? null : new EncodingStatusBarItem(FindOrAddTextBlock(statusBar), onClicked);
             }
             catch (Exception ex)
             {
@@ -39,15 +49,40 @@ namespace EncodingDisplayExtension
             }
         }
 
-        public void Show(EncodingDisplayInfo info)
+        /// <summary>
+        /// 显示编码；canChange 为 true 表示该编码允许点击修改（显示手型光标和提示）。
+        /// </summary>
+        public void Show(EncodingDisplayInfo info, bool canChange)
         {
             _textBlock.Text = info.Text;
             _textBlock.Foreground = info.Foreground;
+            SetClickable(canChange);
         }
 
         public void Clear()
         {
             _textBlock.Text = string.Empty;
+            SetClickable(false);
+        }
+
+        /// <summary>
+        /// 编码项左上角的屏幕坐标（设备像素），作为弹出菜单的位置。
+        /// </summary>
+        public Point ScreenPosition => _textBlock.PointToScreen(new Point(0, 0));
+
+        private void SetClickable(bool canChange)
+        {
+            _canChange = canChange;
+            _textBlock.Cursor = canChange ? Cursors.Hand : null;
+            _textBlock.ToolTip = canChange ? ClickableToolTip : DefaultToolTip;
+        }
+
+        private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_canChange)
+            {
+                _onClicked();
+            }
         }
 
         private static TextBlock FindOrAddTextBlock(StatusBar statusBar)
@@ -79,7 +114,7 @@ namespace EncodingDisplayExtension
                 Margin = new Thickness(10, 0, 10, 0), // 左右留点空隙
                 VerticalAlignment = VerticalAlignment.Center,
                 Foreground = SystemColors.WindowTextBrush, // 首次刷新前的占位色，刷新后由编码对应的颜色覆盖
-                ToolTip = "Current File Encoding"
+                ToolTip = DefaultToolTip
             };
         }
 

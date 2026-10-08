@@ -1,0 +1,85 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <Commands package="guidEncodingDisplayPackage">
+
+    <Menus>
+      <!-- 点击状态栏编码项时弹出的上下文菜单：上下文菜单没有 Parent，由代码按屏幕坐标弹出 -->
+      <Menu guid="guidEncodingMenuCmdSet" id="EncodingContextMenu" type="Context">
+        <Strings>
+          <ButtonText>Encoding</ButtonText>
+        </Strings>
+      </Menu>
+    </Menus>
+
+    <Groups>
+      <Group guid="guidEncodingMenuCmdSet" id="EncodingMenuGroup" priority="0x0100">
+        <Parent guid="guidEncodingMenuCmdSet" id="EncodingContextMenu" />
+      </Group>
+    </Groups>
+
+    <!--
+      5 个按钮与 SupportedEncodings.All 按顺序一一对应（ID 从 0x0100 起连续递增）。
+      按钮文字带 TextChanges 标志，运行时由代码按 EncodingDisplayInfo 设置，这里的文字只是占位。
+    -->
+    <Buttons>
+      <Button guid="guidEncodingMenuCmdSet" id="cmdidEncoding0" priority="0x0100" type="Button">
+        <Parent guid="guidEncodingMenuCmdSet" id="EncodingMenuGroup" />
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Encoding 1</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidEncodingMenuCmdSet" id="cmdidEncoding1" priority="0x0101" type="Button">
+        <Parent guid="guidEncodingMenuCmdSet" id="EncodingMenuGroup" />
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Encoding 2</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidEncodingMenuCmdSet" id="cmdidEncoding2" priority="0x0102" type="Button">
+        <Parent guid="guidEncodingMenuCmdSet" id="EncodingMenuGroup" />
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Encoding 3</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidEncodingMenuCmdSet" id="cmdidEncoding3" priority="0x0103" type="Button">
+        <Parent guid="guidEncodingMenuCmdSet" id="EncodingMenuGroup" />
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Encoding 4</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidEncodingMenuCmdSet" id="cmdidEncoding4" priority="0x0104" type="Button">
+        <Parent guid="guidEncodingMenuCmdSet" id="EncodingMenuGroup" />
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Encoding 5</ButtonText>
+        </Strings>
+      </Button>
+    </Buttons>
+
+  </Commands>
+
+  <Symbols>
+    <!-- 包 GUID，必须与 EncodingDisplayPackage.PackageGuidString 一致 -->
+    <GuidSymbol name="guidEncodingDisplayPackage" value="{a8b9c0d1-e2f3-4a5b-6c7d-8e9f0a1b2c3d}" />
+
+    <!-- 命令集 GUID，必须与 EncodingMenu.cs 中的 CommandSetGuid 一致 -->
+    <GuidSymbol name="guidEncodingMenuCmdSet" value="{35027143-ada8-4353-b0e2-7f159477159a}">
+      <IDSymbol name="EncodingContextMenu" value="0x1000" />
+      <IDSymbol name="EncodingMenuGroup" value="0x1010" />
+      <IDSymbol name="cmdidEncoding0" value="0x0100" />
+      <IDSymbol name="cmdidEncoding1" value="0x0101" />
+      <IDSymbol name="cmdidEncoding2" value="0x0102" />
+      <IDSymbol name="cmdidEncoding3" value="0x0103" />
+      <IDSymbol name="cmdidEncoding4" value="0x0104" />
+    </GuidSymbol>
+  </Symbols>
+
+</CommandTable>

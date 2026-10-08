@@ -7,7 +7,8 @@
 ## ✨ 功能特性
 
 - 📄 在状态栏实时显示当前编辑文件的编码格式
-- 🔄 自动切换：当切换文件或窗口时自动更新编码显示
+- ✏️ 点击状态栏的编码，可在 `UTF-8`、`UTF-8 BOM`、`GB2312`、`UTF-16`、`US-ASCII` 之间转换并保存
+- 🔄 自动切换：当切换文件或窗口时自动更新编码显示；焦点移到输出、调用堆栈、解决方案资源管理器等工具窗口时，仍显示当前打开文件的编码
 - 🚀 后台加载：采用异步加载方式，不影响 IDE 启动速度
 - 💡 轻量级：代码简洁，对 IDE 性能几乎无影响
 
@@ -52,6 +53,20 @@
 | UTF-16 LE | `UTF-16` |
 | ASCII | `US-ASCII` |
 
+### 修改并保存编码
+
+1. 点击状态栏里的编码文字（鼠标变成手型表示可点击）
+2. 在弹出的 VS 原生菜单中选择目标编码（当前编码带 ✓，外观随 VS 主题）
+3. 文件会立即按新编码保存到磁盘
+
+说明：
+
+- 只有当前编码属于上表 5 种之一时才可点击修改，目标编码也只能在这 5 种中选择
+- 转换前会检查文件内容：如果包含目标编码无法表示的字符（例如含中文的文件转 `US-ASCII`），会弹窗提示并取消，不会改动文件
+- 文件还没保存到磁盘时无法转换
+- 有未保存的修改时，会连同修改一起按新编码保存
+- 如果 `.editorconfig` 中设置了 `charset`，保存时会被它覆盖，此时插件会提示实际保存的编码
+
 ## 🔧 构建说明
 
 ### 前置条件
@@ -84,10 +99,15 @@ start EncodingDisplayExtension.sln
 EncodingDisplayExtension/
 ├── EncodingDisplayExtension.sln     # 解决方案文件
 ├── EncodingDisplayExtension.csproj  # 项目文件
-├── EncodingDisplayPackage.cs        # 包入口：初始化、事件订阅、刷新调度
-├── ActiveDocumentTracker.cs         # 解析活动编辑器的文档，并订阅其编码变化
+├── EncodingDisplayPackage.cs        # 包入口：初始化、事件订阅、刷新调度、编码转换流程
+├── ActiveDocumentTracker.cs         # 解析活动文档窗口的文档，并订阅其编码变化
 ├── EncodingDisplayInfo.cs           # 编码到显示文本与颜色的映射
-├── EncodingStatusBarItem.cs         # 状态栏显示项的注入与更新
+├── EncodingStatusBarItem.cs         # 状态栏显示项的注入、更新与点击
+├── SupportedEncodings.cs            # 支持显示与转换的 5 种编码
+├── EncodingMenu.cs                  # 点击状态栏后弹出的原生编码菜单：命令注册、打勾与弹出
+├── EncodingMenu.vsct                # 编码菜单的 VS 命令表定义（上下文菜单与 5 个按钮）
+├── EncodingConverter.cs             # 按目标编码保存文件（含转换前检查）
+├── EncodingExtensions.cs            # 检查文本能否用某编码无损表示
 ├── VisualTreeExtensions.cs          # WPF 可视化树查找扩展
 ├── source.extension.vsixmanifest    # VSIX 清单文件
 ├── icon.png                         # 扩展图标
@@ -102,11 +122,13 @@ EncodingDisplayExtension/
 
 ## 🛠️ 技术实现
 
-- 使用 `IVsTextManager` 获取当前活动的文本视图
-- 使用 `IVsEditorAdaptersFactoryService` 将 COM 接口转换为 WPF 编辑器接口
+- 使用 `IVsMonitorSelection` 读取 `SEID_DocumentFrame`（活动文档窗口，只在切换文档时变化），再取其 `DocData`（`IVsTextBuffer`），因此不受工具窗口获得焦点的影响
+- 使用 `IVsEditorAdaptersFactoryService.GetDocumentBuffer` 把 `IVsTextBuffer` 转换为编辑器的 `ITextBuffer`；读取 `DocData` 前先检查 `VSFPROPID_IsDocDataInitialized`，文档数据尚未初始化时不读取（与 Roslyn 的活动文档跟踪做法一致）
 - 通过 `ITextDocument.Encoding` 获取文件编码信息
 - 监听 `WindowEvents.WindowActivated`（切换文档/窗口）和主窗口 `Activated`（从其他应用切回）事件，自动刷新显示
 - 监听当前文档的 `ITextDocument.EncodingChanged` 事件，以其他编码保存后立即更新
+- 点击状态栏编码弹出 VS 原生上下文菜单：`.vsct` 定义菜单，`OleMenuCommand` 注册命令（运行时设置文字与勾选状态），`OleMenuCommandService.ShowContextMenu` 按屏幕坐标弹出
+- 转换时先用异常回退的 `Encoding` 检查内容能否无损表示，再设置 `ITextDocument.Encoding`，并通过 `IVsRunningDocumentTable.SaveDocuments`（`RDTSAVEOPT_ForceSave`）走 VS 标准保存流程
 - 采用 `AsyncPackage` 实现后台异步加载
 
 ## 📄 许可证
