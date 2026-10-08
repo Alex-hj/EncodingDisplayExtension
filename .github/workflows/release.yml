@@ -1,4 +1,4 @@
-# 推送形如 v1.6 的 tag 时，自动编译 VSIX 并发布到 GitHub Release
+# 推送形如 v2.0 的 tag 时，自动编译 VSIX 并发布到 GitHub Release
 name: Release
 
 on:

@@ -4,7 +4,7 @@
 
 ## 概述
 
-- **触发条件**：推送以 `v` 开头（匹配 `v*`）的 tag，例如 `v1.6`。只推送 `main` 的提交不会触发。
+- **触发条件**：推送以 `v` 开头（匹配 `v*`）的 tag，例如 `v2.0`。只推送 `main` 的提交不会触发。
 - **工作流**：[`.github/workflows/release.yml`](../.github/workflows/release.yml)，在 `windows-2022` 上用 MSBuild 编译 Release，把 `bin/Release/EncodingDisplayExtension.vsix` 上传到该 tag 对应的 Release。
 - **注意**：GitHub 使用的是 tag 所指向的那个提交里的工作流文件，所以该提交必须已经包含 `release.yml`。
 
@@ -18,17 +18,17 @@
 
 2. **升版本号**
    - 打开 `source.extension.vsixmanifest`，修改 `<Identity ... Version="x.y" ...>` 里的 `Version`。VS 以这个版本号判断是否为新版本。
-   - tag 名 = `v` + 清单版本号（清单 `1.6` 对应 tag `v1.6`）。工作流不会校验两者是否一致，需要自己保证。
+   - tag 名 = `v` + 清单版本号（清单 `2.0` 对应 tag `v2.0`）。工作流不会校验两者是否一致，需要自己保证。
    - 提交并推送到 `main`。
 
 3. **打 tag 并推送**（要打 tag 的提交必须已经推送到远程）
 
    ```powershell
-   git tag v1.6
-   git push origin v1.6
+   git tag v2.0
+   git push origin v2.0
    ```
 
-   TortoiseGit 的做法：右键仓库 → TortoiseGit → Create Tag，填写 `v1.6`，基于 HEAD；然后 Push，选择推送该 tag。
+   TortoiseGit 的做法：右键仓库 → TortoiseGit → Create Tag，填写 `v2.0`，基于 HEAD；然后 Push，选择推送该 tag。
 
 4. **查看运行情况**：打开 [Actions 页面](https://github.com/Alex-hj/EncodingDisplayExtension/actions)，会出现名为 Release 的运行记录，一般几分钟内完成。
 
@@ -54,8 +54,8 @@
 先在 Releases 页面删除该 Release，再删除 tag：
 
 ```powershell
-git push origin --delete v1.6
-git tag -d v1.6
+git push origin --delete v2.0
+git tag -d v2.0
 ```
 
 然后修复问题，重新打 tag 并推送。如果只是偶发失败（比如网络问题），也可以在 Actions 页面对失败的运行点 Re-run jobs，它会复用同一个 tag 和提交。
