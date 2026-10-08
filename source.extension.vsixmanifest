@@ -3,7 +3,7 @@
     <Metadata>
         <Identity Id="EncodingDisplayExtension.d12d3504-1bd4-4f31-af9f-d1c4bb9b4b0d" Version="2.0" Language="en-US" Publisher="Alex Zhao" />
         <DisplayName>File Encoding Display 2022</DisplayName>
-        <Description xml:space="preserve">Status bar encoding indicator for Visual Studio 2022</Description>
+        <Description xml:space="preserve">Status bar encoding indicator for Visual Studio 2022. Click it to convert the file to another encoding.</Description>
         <Icon>icon.png</Icon>
     </Metadata>
     <Installation>
