@@ -15,7 +15,7 @@ using Task = System.Threading.Tasks.Task;
 namespace EncodingDisplayExtension
 {
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
-    [ProvideMenuResource("Menus.ctmenu", 1)]
+    [ProvideMenuResource("Menus.ctmenu", 2)] // EncodingMenu.vsct 有改动时递增，VS 据此重新合并菜单
     [Guid(PackageGuidString)]
     [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionExists_string, PackageAutoLoadFlags.BackgroundLoad)]
     [ProvideAutoLoad(VSConstants.UICONTEXT.NoSolution_string, PackageAutoLoadFlags.BackgroundLoad)]
@@ -160,7 +160,7 @@ namespace EncodingDisplayExtension
             }
         }
 
-        // 显示编码；属于 5 种支持编码的才允许点击修改
+        // 显示编码；属于支持列表（SupportedEncodings）的才允许点击修改
         private void ShowEncoding(Encoding encoding)
         {
             _statusBarItem.Show(EncodingDisplayInfo.From(encoding), SupportedEncodings.Contains(encoding));

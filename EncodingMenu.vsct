@@ -19,7 +19,8 @@
     </Groups>
 
     <!--
-      5 个按钮与 SupportedEncodings.All 按顺序一一对应（ID 从 0x0100 起连续递增）。
+      8 个按钮与 SupportedEncodings.All 按顺序一一对应（ID 从 0x0100 起连续递增）。
+      按钮或菜单有任何改动，都要同时调大 EncodingDisplayPackage 上 ProvideMenuResource 的版本号（VS 靠它判断是否重新合并菜单）。
       按钮文字带 TextChanges 标志，运行时由代码按 EncodingDisplayInfo 设置，这里的文字只是占位。
     -->
     <Buttons>
@@ -62,6 +63,30 @@
           <ButtonText>Encoding 5</ButtonText>
         </Strings>
       </Button>
+
+      <Button guid="guidEncodingMenuCmdSet" id="cmdidEncoding5" priority="0x0105" type="Button">
+        <Parent guid="guidEncodingMenuCmdSet" id="EncodingMenuGroup" />
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Encoding 6</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidEncodingMenuCmdSet" id="cmdidEncoding6" priority="0x0106" type="Button">
+        <Parent guid="guidEncodingMenuCmdSet" id="EncodingMenuGroup" />
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Encoding 7</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidEncodingMenuCmdSet" id="cmdidEncoding7" priority="0x0107" type="Button">
+        <Parent guid="guidEncodingMenuCmdSet" id="EncodingMenuGroup" />
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Encoding 8</ButtonText>
+        </Strings>
+      </Button>
     </Buttons>
 
   </Commands>
@@ -79,6 +104,9 @@
       <IDSymbol name="cmdidEncoding2" value="0x0102" />
       <IDSymbol name="cmdidEncoding3" value="0x0103" />
       <IDSymbol name="cmdidEncoding4" value="0x0104" />
+      <IDSymbol name="cmdidEncoding5" value="0x0105" />
+      <IDSymbol name="cmdidEncoding6" value="0x0106" />
+      <IDSymbol name="cmdidEncoding7" value="0x0107" />
     </GuidSymbol>
   </Symbols>
 

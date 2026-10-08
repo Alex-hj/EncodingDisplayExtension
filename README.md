@@ -7,7 +7,7 @@
 ## ✨ 功能特性
 
 - 📄 在状态栏实时显示当前编辑文件的编码格式
-- ✏️ 点击状态栏的编码，可在 `UTF-8`、`UTF-8 BOM`、`GB2312`、`UTF-16`、`US-ASCII` 之间转换并保存
+- ✏️ 点击状态栏的编码，可在 `UTF-8`、`UTF-8 BOM`、`GB2312`、`GB18030`、`UTF-16`、`UTF-16BE`、`US-ASCII`、`WINDOWS-1252` 之间转换并保存
 - 🔄 自动切换：当切换文件或窗口时自动更新编码显示；焦点移到输出、调用堆栈、解决方案资源管理器等工具窗口时，仍显示当前打开文件的编码
 - 🚀 后台加载：采用异步加载方式，不影响 IDE 启动速度
 - 💡 轻量级：代码简洁，对 IDE 性能几乎无影响
@@ -50,8 +50,11 @@
 | UTF-8 | `UTF-8` |
 | UTF-8 with BOM | `UTF-8 BOM` |
 | GB2312/GBK | `GB2312` |
+| GB18030 | `GB18030` |
 | UTF-16 LE | `UTF-16` |
+| UTF-16 BE | `UTF-16BE` |
 | ASCII | `US-ASCII` |
+| Windows-1252 | `WINDOWS-1252` |
 
 ### 修改并保存编码
 
@@ -61,7 +64,7 @@
 
 说明：
 
-- 只有当前编码属于上表 5 种之一时才可点击修改，目标编码也只能在这 5 种中选择
+- 只有当前编码属于上表 8 种之一时才可点击修改，目标编码也只能在这 8 种中选择
 - 转换前会检查文件内容：如果包含目标编码无法表示的字符（例如含中文的文件转 `US-ASCII`），会弹窗提示并取消，不会改动文件；提示里会指出第一个无法表示的字符所在的行号和行内字符位置（均从 1 开始）
 - 文件还没保存到磁盘时无法转换
 - 有未保存的修改时，会连同修改一起按新编码保存
@@ -103,9 +106,9 @@ EncodingDisplayExtension/
 ├── ActiveDocumentTracker.cs         # 解析活动文档窗口的文档，并订阅其编码变化
 ├── EncodingDisplayInfo.cs           # 编码到显示文本与颜色的映射
 ├── EncodingStatusBarItem.cs         # 状态栏显示项的注入、更新与点击
-├── SupportedEncodings.cs            # 支持显示与转换的 5 种编码
+├── SupportedEncodings.cs            # 支持显示与转换的 8 种编码
 ├── EncodingMenu.cs                  # 点击状态栏后弹出的原生编码菜单：命令注册、打勾与弹出
-├── EncodingMenu.vsct                # 编码菜单的 VS 命令表定义（上下文菜单与 5 个按钮）
+├── EncodingMenu.vsct                # 编码菜单的 VS 命令表定义（上下文菜单与 8 个按钮）
 ├── EncodingConverter.cs             # 按目标编码保存文件（含转换前检查）
 ├── EncodingExtensions.cs            # 定位文本中第一个无法用某编码表示的字符
 ├── VisualTreeExtensions.cs          # WPF 可视化树查找扩展
