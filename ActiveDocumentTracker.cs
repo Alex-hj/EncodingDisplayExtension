@@ -19,21 +19,27 @@ namespace EncodingDisplayExtension
         // 数值已在本机 VS 17.14 的 Microsoft.VisualStudio.Interop 中核实；当前引用的 SDK 版本还没有对应的枚举。
         private const int IsDocDataInitializedPropertyId = -5055;
 
-        private readonly IVsMonitorSelection _monitorSelection;
+        private readonly ActiveDocumentFrameWatcher _frameWatcher;
         private readonly IVsEditorAdaptersFactoryService _editorAdapter;
-        private readonly Action _onEncodingChanged;
+        private readonly Action _onChanged;
 
         // 当前跟踪的文档（用于监听编码变化）
         private ITextDocument _trackedDocument;
 
+        /// <param name="onChanged">
+        /// 状态栏显示可能需要更新时调用：活动文档窗口变化（含延迟加载的文档显示出来、窗口关闭），或当前文档的编码变化。
+        /// 可能在 VS 的事件回调里同步调用。
+        /// </param>
         public ActiveDocumentTracker(
             IVsMonitorSelection monitorSelection,
             IVsEditorAdaptersFactoryService editorAdapter,
-            Action onEncodingChanged)
+            Action onChanged)
         {
-            _monitorSelection = monitorSelection;
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             _editorAdapter = editorAdapter;
-            _onEncodingChanged = onEncodingChanged;
+            _onChanged = onChanged;
+            _frameWatcher = new ActiveDocumentFrameWatcher(monitorSelection, onChanged);
         }
 
         /// <summary>
@@ -56,7 +62,10 @@ namespace EncodingDisplayExtension
 
         public void Dispose()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             Track(null);
+            _frameWatcher.Dispose();
         }
 
         private ITextDocument FindActiveDocument()
@@ -78,7 +87,7 @@ namespace EncodingDisplayExtension
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            IVsWindowFrame frame = GetActiveDocumentFrame();
+            IVsWindowFrame frame = _frameWatcher.ActiveFrame;
             if (frame == null || !IsDocDataInitialized(frame))
             {
                 return null;
@@ -90,15 +99,6 @@ namespace EncodingDisplayExtension
             }
 
             return docData is IVsTextBuffer textBuffer ? _editorAdapter.GetDocumentBuffer(textBuffer) : null;
-        }
-
-        // SEID_DocumentFrame 只在文档窗口被激活时才会变化，工具窗口获得焦点不会影响它
-        private IVsWindowFrame GetActiveDocumentFrame()
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
-
-            int hr = _monitorSelection.GetCurrentElementValue((uint)VSConstants.VSSELELEMID.SEID_DocumentFrame, out object value);
-            return ErrorHandler.Succeeded(hr) ? value as IVsWindowFrame : null;
         }
 
         // 旧版本 VS 没有这个属性（读取失败），按已初始化处理；读到的值不是 bool 时按未初始化处理
@@ -136,7 +136,7 @@ namespace EncodingDisplayExtension
 
         private void OnEncodingChanged(object sender, EncodingChangedEventArgs e)
         {
-            _onEncodingChanged();
+            _onChanged();
         }
     }
 }

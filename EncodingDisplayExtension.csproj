@@ -45,6 +45,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ActiveDocumentFrameWatcher.cs" />
     <Compile Include="ActiveDocumentTracker.cs" />
     <Compile Include="EncodingConverter.cs" />
     <Compile Include="EncodingDisplayInfo.cs" />

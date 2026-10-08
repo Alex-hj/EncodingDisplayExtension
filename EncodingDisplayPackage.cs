@@ -23,16 +23,12 @@ namespace EncodingDisplayExtension
     {
         public const string PackageGuidString = "a8b9c0d1-e2f3-4a5b-6c7d-8e9f0a1b2c3d";
 
-        // 窗口/主窗口激活后，等待 TextManager 状态同步再刷新显示
-        private const int ActivationRefreshDelayMs = 50;
-
         private const string MessageTitle = "Change File Encoding";
 
         private EncodingStatusBarItem _statusBarItem;
         private ActiveDocumentTracker _documentTracker;
         private EncodingConverter _encodingConverter;
         private EncodingMenu _encodingMenu;
-        private EnvDTE.WindowEvents _windowEvents;
         private Window _mainWindow;
 
         // 转换过程中会连续触发 EncodingChanged，此时忽略刷新请求，转换结束后按被转换的文档统一刷新
@@ -46,14 +42,13 @@ namespace EncodingDisplayExtension
             var componentModel = await GetServiceAsync(typeof(SComponentModel)) as IComponentModel;
             var runningDocumentTable = await GetServiceAsync(typeof(SVsRunningDocumentTable)) as IVsRunningDocumentTable;
             var commandService = await GetServiceAsync(typeof(IMenuCommandService)) as OleMenuCommandService;
-            var dte = await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
 
             _documentTracker = CreateDocumentTracker(monitorSelection, componentModel);
             _encodingConverter = new EncodingConverter(runningDocumentTable);
             _encodingMenu = EncodingMenu.Create(commandService, OnEncodingSelected);
             _mainWindow = Application.Current?.MainWindow;
             _statusBarItem = EncodingStatusBarItem.TryInject(_mainWindow, OnStatusBarItemClicked);
-            SubscribeActivationEvents(dte);
+            SubscribeMainWindowActivated();
 
             Refresh();
         }
@@ -66,37 +61,20 @@ namespace EncodingDisplayExtension
                 return null;
             }
 
-            return new ActiveDocumentTracker(monitorSelection, editorAdapter, () => ScheduleRefresh());
+            return new ActiveDocumentTracker(monitorSelection, editorAdapter, ScheduleRefresh);
         }
 
-        private void SubscribeActivationEvents(EnvDTE.DTE dte)
+        // 切换文档、文档编码变化由 ActiveDocumentTracker 通知；这里只补充“从其他应用切回 VS”
+        private void SubscribeMainWindowActivated()
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
-
-            if (dte != null)
-            {
-                // 需要持有 WindowEvents 引用，否则会被 GC 回收导致事件不再触发
-                _windowEvents = dte.Events.WindowEvents;
-                _windowEvents.WindowActivated += OnWindowActivated;
-            }
-
-            // 从其他应用切回 VS 时也要刷新
             if (_mainWindow != null)
             {
                 _mainWindow.Activated += OnMainWindowActivated;
             }
         }
 
-        private void UnsubscribeActivationEvents()
+        private void UnsubscribeMainWindowActivated()
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
-
-            if (_windowEvents != null)
-            {
-                _windowEvents.WindowActivated -= OnWindowActivated;
-                _windowEvents = null;
-            }
-
             if (_mainWindow != null)
             {
                 _mainWindow.Activated -= OnMainWindowActivated;
@@ -104,31 +82,20 @@ namespace EncodingDisplayExtension
             }
         }
 
-        private void OnWindowActivated(EnvDTE.Window gotFocus, EnvDTE.Window lostFocus)
-        {
-            ScheduleRefresh(ActivationRefreshDelayMs);
-        }
-
         private void OnMainWindowActivated(object sender, EventArgs e)
         {
-            ScheduleRefresh(ActivationRefreshDelayMs);
+            ScheduleRefresh();
         }
 
         // 统一的刷新入口，可在任意线程调用
-        private void ScheduleRefresh(int delayMs = 0)
+        private void ScheduleRefresh()
         {
-            _ = JoinableTaskFactory.RunAsync(() => RefreshAsync(delayMs));
+            _ = JoinableTaskFactory.RunAsync(RefreshOnMainThreadAsync);
         }
 
-        // 切到 UI 线程，按需延时后刷新
-        private async Task RefreshAsync(int delayMs)
+        private async Task RefreshOnMainThreadAsync()
         {
             await JoinableTaskFactory.SwitchToMainThreadAsync();
-            if (delayMs > 0)
-            {
-                await Task.Delay(delayMs);
-            }
-
             Refresh();
         }
 
@@ -231,7 +198,7 @@ namespace EncodingDisplayExtension
             if (disposing)
             {
                 // 取消事件订阅并释放当前文档引用，防止内存泄漏
-                UnsubscribeActivationEvents();
+                UnsubscribeMainWindowActivated();
                 _documentTracker?.Dispose();
                 _documentTracker = null;
             }

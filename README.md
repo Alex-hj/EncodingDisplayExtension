@@ -103,6 +103,7 @@ EncodingDisplayExtension/
 ├── EncodingDisplayExtension.sln     # 解决方案文件
 ├── EncodingDisplayExtension.csproj  # 项目文件
 ├── EncodingDisplayPackage.cs        # 包入口：初始化、事件订阅、刷新调度、编码转换流程
+├── ActiveDocumentFrameWatcher.cs    # 跟踪活动文档窗口：切换、显示出来、关闭时通知
 ├── ActiveDocumentTracker.cs         # 解析活动文档窗口的文档，并订阅其编码变化
 ├── EncodingDisplayInfo.cs           # 编码到显示文本与颜色的映射
 ├── EncodingStatusBarItem.cs         # 状态栏显示项的注入、更新与点击
@@ -125,10 +126,11 @@ EncodingDisplayExtension/
 
 ## 🛠️ 技术实现
 
-- 使用 `IVsMonitorSelection` 读取 `SEID_DocumentFrame`（活动文档窗口，只在切换文档时变化），再取其 `DocData`（`IVsTextBuffer`），因此不受工具窗口获得焦点的影响
+- 用 `IVsSelectionEvents` 监听 `SEID_DocumentFrame` / `SEID_WindowFrame` 得知新激活的文档窗口（按窗口类型过滤，工具窗口不算），再取其 `DocData`（`IVsTextBuffer`），因此焦点移到工具窗口时仍显示当前文件的编码；做法与 Roslyn 的活动文档跟踪一致
+- 对活动文档窗口登记 `IVsWindowFrameNotify`：窗口显示出来时（延迟加载的文档此时才初始化）刷新，窗口关闭、隐藏或切走标签页时清空
 - 使用 `IVsEditorAdaptersFactoryService.GetDocumentBuffer` 把 `IVsTextBuffer` 转换为编辑器的 `ITextBuffer`；读取 `DocData` 前先检查 `VSFPROPID_IsDocDataInitialized`，文档数据尚未初始化时不读取（与 Roslyn 的活动文档跟踪做法一致）
 - 通过 `ITextDocument.Encoding` 获取文件编码信息
-- 监听 `WindowEvents.WindowActivated`（切换文档/窗口）和主窗口 `Activated`（从其他应用切回）事件，自动刷新显示
+- 监听主窗口 `Activated`（从其他应用切回）事件，自动刷新显示
 - 监听当前文档的 `ITextDocument.EncodingChanged` 事件，以其他编码保存后立即更新
 - 点击状态栏编码弹出 VS 原生上下文菜单：`.vsct` 定义菜单，`OleMenuCommand` 注册命令（运行时设置文字与勾选状态），`OleMenuCommandService.ShowContextMenu` 按屏幕坐标弹出
 - 转换时先用异常回退的 `Encoding` 检查内容能否无损表示（`EncoderFallbackException.Index` 即第一个无法表示的字符下标，再由 `ITextSnapshot.GetLineFromPosition` 换算成行号和行内位置），再设置 `ITextDocument.Encoding`，并通过 `IVsRunningDocumentTable.SaveDocuments`（`RDTSAVEOPT_ForceSave`）走 VS 标准保存流程
