@@ -58,12 +58,22 @@ namespace EncodingDisplayExtension
                 return "The file has not been saved to disk yet. Save it first, then change its encoding.";
             }
 
-            if (!target.CanEncode(document.TextBuffer.CurrentSnapshot.GetText()))
+            ITextSnapshot snapshot = document.TextBuffer.CurrentSnapshot;
+            int unencodableIndex = target.IndexOfUnencodable(snapshot.GetText());
+            if (unencodableIndex >= 0)
             {
-                return $"The file contains characters that cannot be represented in {targetText}. The encoding was not changed.";
+                return $"The file contains characters that cannot be represented in {targetText}. "
+                    + $"The first one is at {DescribePosition(snapshot, unencodableIndex)}. The encoding was not changed.";
             }
 
             return null;
+        }
+
+        // 把快照中的位置描述成“行号 + 行内字符序号”（均从 1 开始）；行号与编辑器一致
+        private static string DescribePosition(ITextSnapshot snapshot, int position)
+        {
+            ITextSnapshotLine line = snapshot.GetLineFromPosition(position);
+            return $"line {line.LineNumber + 1}, character {position - line.Start.Position + 1}";
         }
 
         // 通过 RDT 强制保存：文档未修改（只改了编码）也会写盘，并保留 VS 标准保存流程（只读、源代码管理提示等）

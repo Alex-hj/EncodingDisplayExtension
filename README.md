@@ -62,7 +62,7 @@
 说明：
 
 - 只有当前编码属于上表 5 种之一时才可点击修改，目标编码也只能在这 5 种中选择
-- 转换前会检查文件内容：如果包含目标编码无法表示的字符（例如含中文的文件转 `US-ASCII`），会弹窗提示并取消，不会改动文件
+- 转换前会检查文件内容：如果包含目标编码无法表示的字符（例如含中文的文件转 `US-ASCII`），会弹窗提示并取消，不会改动文件；提示里会指出第一个无法表示的字符所在的行号和行内字符位置（均从 1 开始）
 - 文件还没保存到磁盘时无法转换
 - 有未保存的修改时，会连同修改一起按新编码保存
 - 如果 `.editorconfig` 中设置了 `charset`，保存时会被它覆盖，此时插件会提示实际保存的编码
@@ -107,7 +107,7 @@ EncodingDisplayExtension/
 ├── EncodingMenu.cs                  # 点击状态栏后弹出的原生编码菜单：命令注册、打勾与弹出
 ├── EncodingMenu.vsct                # 编码菜单的 VS 命令表定义（上下文菜单与 5 个按钮）
 ├── EncodingConverter.cs             # 按目标编码保存文件（含转换前检查）
-├── EncodingExtensions.cs            # 检查文本能否用某编码无损表示
+├── EncodingExtensions.cs            # 定位文本中第一个无法用某编码表示的字符
 ├── VisualTreeExtensions.cs          # WPF 可视化树查找扩展
 ├── source.extension.vsixmanifest    # VSIX 清单文件
 ├── icon.png                         # 扩展图标
@@ -128,7 +128,7 @@ EncodingDisplayExtension/
 - 监听 `WindowEvents.WindowActivated`（切换文档/窗口）和主窗口 `Activated`（从其他应用切回）事件，自动刷新显示
 - 监听当前文档的 `ITextDocument.EncodingChanged` 事件，以其他编码保存后立即更新
 - 点击状态栏编码弹出 VS 原生上下文菜单：`.vsct` 定义菜单，`OleMenuCommand` 注册命令（运行时设置文字与勾选状态），`OleMenuCommandService.ShowContextMenu` 按屏幕坐标弹出
-- 转换时先用异常回退的 `Encoding` 检查内容能否无损表示，再设置 `ITextDocument.Encoding`，并通过 `IVsRunningDocumentTable.SaveDocuments`（`RDTSAVEOPT_ForceSave`）走 VS 标准保存流程
+- 转换时先用异常回退的 `Encoding` 检查内容能否无损表示（`EncoderFallbackException.Index` 即第一个无法表示的字符下标，再由 `ITextSnapshot.GetLineFromPosition` 换算成行号和行内位置），再设置 `ITextDocument.Encoding`，并通过 `IVsRunningDocumentTable.SaveDocuments`（`RDTSAVEOPT_ForceSave`）走 VS 标准保存流程
 - 采用 `AsyncPackage` 实现后台异步加载
 
 ## 📄 许可证
